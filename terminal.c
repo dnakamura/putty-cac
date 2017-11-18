@@ -2651,6 +2651,57 @@ static void toggle_mode(Terminal *term, int mode, int query, int state)
 	}
 }
 
+static int parse_color(const char *spec, const char * color, int *r, int *g, int *b){
+	const char *temp = color;
+	if (strcmp(spec, "rgb") != 0 ) /* only support rgb right now */
+		return -1;
+	
+	/* parse the R component */
+	*r = (int) strtol(temp, &temp, 16);
+	if (*temp != '/')
+		return -1;
+	++temp;
+	
+	*g = (int) strtol(temp, &temp, 16);
+	if (*temp != '/')
+		return -1;
+	++temp;
+	
+	*b = (int) strtol(temp, &temp, 16);
+	/* check if *temp == '\0' ? */
+	return 0;
+}
+
+/*
+ * Handle OSC 4 ie xterm set color
+ */
+static void osc_set_color(Terminal *term)
+{
+	char *temp, *color_spec, *color;
+	int r,g,b;
+	int color_num = 0;
+	
+	r = g = b = 0;
+	
+	temp = strchr(term->osc_string, ';');
+	if (temp == NULL)
+		return;
+	*temp = '\0';
+	++temp;
+	color_num = atoi(term->osc_string);
+	color_spec = temp;
+	
+	temp = strchr (temp, ':');
+	if (temp == NULL)
+		return;
+	*temp = '\0';
+	color = ++temp;
+	
+	if (!parse_color(color_spec, color, &r, &g, &b)) {
+		palette_set(term->frontend, color_num, r, g, b);
+	}
+}
+
 /*
  * Process an OSC sequence: set window title or icon name.
  */
@@ -2674,6 +2725,9 @@ static void do_osc(Terminal *term)
 	  case 21:
 	    if (!term->no_remote_wintitle)
 		set_title(term->frontend, term->osc_string);
+	    break;
+	  case  4:
+	    osc_set_color(term);
 	    break;
 	}
     }
